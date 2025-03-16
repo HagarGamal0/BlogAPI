@@ -4,39 +4,29 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Post;
+use Illuminate\Support\Facades\Cache;
+
 
 class PostController extends Controller
 {
 
-    public function search(Request $request) {
+    public function index(Request $request)
+    {
+        $cacheKey = 'posts:' . md5(json_encode($request->all()));
 
+        return Cache::remember($cacheKey, 60, function () use ($request) {
             $query = Post::query();
 
-            // Search by title (if provided)
-            if ($request->filled('title')) {
-                $query->where('title', 'like', '%' . $request->title . '%');
+            if ($request->filled('category')) {
+                $query->where('category', $request->category);
             }
-
-            // Search by author name (if provided)
             if ($request->filled('author')) {
                 $query->whereHas('user', function ($q) use ($request) {
                     $q->where('name', 'like', '%' . $request->author . '%');
                 });
             }
-
-            // Filter by category (if provided)
-            if ($request->filled('category')) {
-                $query->where('category', $request->category);
-            }
-
-            // Filter by date range (if provided)
-            if ($request->filled('start_date') && $request->filled('end_date')) {
-                $query->whereBetween('created_at', [$request->start_date, $request->end_date]);
-            }
-
-            // Return paginated results
-            return response()->json($query->paginate(10));
-
+            return $query->paginate(10);
+        });
     }
 
 
